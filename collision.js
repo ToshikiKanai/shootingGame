@@ -39,6 +39,7 @@ class QuadTree{
             エネミー : 2
             エネミーショット : 3
     */
+   //addNode()はaddObjで呼び出される
     addNode(n, node, level, index){
         //indexはその階層(level)の中での番号
         const offset = ((4 ** level) -1) / 3;
@@ -66,7 +67,14 @@ class QuadTree{
 
     // オブジェクトを線形四分木に追加する。
     // オブジェクトの座標からモートン番号を計算し、適切なセルに割り当てる。
+    /*　引数nは、追加するオブジェクトをあらわす。
+            キャラクター : 0
+            キャラクターショット : １
+            エネミー : 2
+            エネミーショット : 3
+    */
     addObj(n, obj){
+        const objId = n;
         const collider = obj;
         const size = collider.size;
         const left = collider.x - size
@@ -104,7 +112,7 @@ class QuadTree{
         const cellNumber = this.calcCell(larger, level);
 
         //線形四分木に追加する
-        this.addNode(n, obj, level, cellNumber);
+        this.addNode(objId, obj, level, cellNumber);
     }
 
     //-- 以下関数定義 --------------------------------------------------------------------------------------

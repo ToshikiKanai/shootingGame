@@ -39,6 +39,7 @@ function Enemy(){
     this.size = 0;
     this.type = 0;
     this.param = 0;
+    this.life = 1;
     this.alive = false;
 }
 

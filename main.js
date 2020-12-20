@@ -40,8 +40,116 @@ window.onload = function(){
     //2dcontext
     ctx = screenCanvas.getContext("2d");
 
+    //-- 四分木分割関連の処理 ----------------------------------------------------------------------------------------------------
     //線形四分木空間の用意
     qTree = new QuadTree(screenCanvas.width, screenCanvas.height, 3);
+
+    //セル中&衝突オブジェクトリストとの当たり判定をとる
+    //引数cellはセル内にあるオブジェクトの配列、引数objListは衝突オブジェクトリスト
+    function hitTestInCell(charaCell, enemyCell, charaObjList, enemyObjList){
+        //-- セルの中で総当たり -----------
+        const charaLength = charaCell.length;
+        const enemyLength = enemyCell.length;
+        for(let i = 0; i < charaLength; i++){
+            const obj1 = charaCell[i];
+            for(let j = 0; j < enemyCell; j++){
+                const obj2 = enemyCell[j];
+
+                const p = obj2.position.distance(obj1.position)
+                if(p.length() <= obj1.size){
+                    obj1.life--;
+                    if(obj1.life == 0){
+                        obj1.alive = false;
+                    }
+                }
+            }
+        }
+        //-- セルの中で総当たりは以上 -----------
+        //-- 衝突オブジェクトリストと総当たり -----
+        charaObjLength = charaObjList.length;
+        enemyObjLength = enemyObjList.length;
+            //セル中のエネミー(ショット)と、キャラクターの衝突オブジェクトリストとの衝突判定
+        for(let i = 0; i < charaObjLength; i++){
+            const obj = charaObjList[i]
+            for(let j = 0; j < enemyLength; j++){
+                const cellObj = enemyCell[j]
+                const p = cellObj.position.distance(obj.position)
+                if(p.length() <= cellObj.size){
+                    cellObj.life--;
+                    if(cellObj.life == 0){
+                        cellObj.alive = false;
+                    }
+                }
+            }
+        }
+            //セル中のキャラクター(ショット)と、エネミーの衝突オブジェクトリストとの衝突判定
+        for(let i = 0; i < enemyObjLength; i++){
+            const obj = enemyObjList[i];
+            for(let j = 0; j < charaLength; j++){
+                let cellObj = charaCell[j] 
+                const p = cellObj.position.distance(obj.position)
+                if(p.length() <= obj.size){
+                    obj.life--;
+                    if(obj.life == 0){
+                        obj.alive = false;
+                    }
+                }
+            }
+        }
+        //-- 衝突オブジェクトリストと総当たりは以上 -----
+    }
+
+    //-- 衝突判定 ------------------------------------
+    //hitTest(n1,n2)を使用する際には引数のn1、n2のみ指定すればよい
+    function hitTest(n1,n2,currentCharaIndex = 0, currentEnemyIndex = 0, charaObjList = [], enemyObjList =[]){
+        const currentCharaCell = qTree.objectData[n1][currentCharaIndex];
+        const currentEnemyCell = qTree.objectData[n2][currentEnemyIndex];
+        // 現在のセルの中と、衝突オブジェクトリストとで当たり判定を取る。
+        hitTestInCell(currentCharaCell, currentEnemyCell, charaObjList, enemyObjList);
+
+        //下位セルをもつか調べる
+        var hasChildren = false;
+        for(let i = 0; i < 4; i++){
+            const nextIndex = currentCharaIndex * 4 + 1 + i;
+            //下位セルがあった場合
+            let hasChildCell = (nextIndex < qTree.objectData[n1].length) && (qTree.objectData[n1][nextIndex] !== null);
+            hasChildren = hasChildren || hasChildCell;
+            if(hasChildCell){
+                //衝突オブジェクトリストにpush
+                charaObjList.push(...currentCharaCell);
+                hitTest(n1, n2, nextIndex, currentEnemyIndex, charaObjList, enemyObjList);
+            }
+        }
+        //追加したオブジェクトをpop
+        if(hasChildren){
+            const popNum = currentCharaCell.length;
+            for(let i = 0; i < popNum; i++){
+                charaObjList.pop();
+            }
+        }
+
+        hasChildren = false;
+        for(let i = 0; i < 4; i++){
+            const nextIndex = currentEnemyIndex * 4 + 1 + i;
+            //下位セルがあった場合
+            let hasChildCell = (nextIndex < qTree.objectData[n2].length) && (qTree.objectData[n2][nextIndex] !== null);
+            hasChildren = hasChildren || hasChildCell;
+            if(hasChildCell){
+                //衝突オブジェクトリストにpush
+                charaObjList.push(...currentEnemyCell);
+                hitTest(n1, n2, nextIndex, currentEnemyIndex, charaObjList, enemyObjList);
+            }
+        }
+        //追加したオブジェクトをpop
+        if(hasChildren){
+            const popNum = currentEnemyCell.length;
+            for(let i = 0; i < popNum; i++){
+                charaObjList.pop();
+            }
+        }
+        
+    }
+    //-- 四分木分割関連の処理は以上 -------------------------------------------------------------------------------------------------
 
     //target.addEventListener()で(マウスの位置の検出などの)イベントを登録することができる
     screenCanvas.addEventListener("mousemove", mouseMove, true);
@@ -312,25 +420,53 @@ window.onload = function(){
 
 
         //-- 衝突判定 ----------------------------------------------------------------------------------------------
+        //四分木を使った衝突判定
+
+        //四分木をクリア
+        qTree.clear();    
+        //qTree.addObj(n, obj)で各オブジェクトを四分木に登録
+        /*　引数nは、追加するオブジェクトをあらわす。
+            キャラクター : 0
+            キャラクターショット : １
+            エネミー : 2
+            エネミーショット : 3
+        */
+        //キャラクターショットを登録
+        for(i = 0; i<CHARA_SHOT_MAX_COUNT; i++){
+            if(charaShot[i].alive){
+                qTree.addObj(1, charaShot[i])
+            }
+        }
+        //エネミーを登録
+        for(i = 0; i<ENEMY_MAX_COUNT; i++){
+            if(enemy[i].alive){
+                qTree.addObj(2, enemy[i])
+            }
+        }
+        //hitTest(n1,n2)のn1はキャラクター(ショット)、n2はエネミー(ショット)
+        hitTest(1,2)
+
+
+
         //ショットと敵orキャラクター間の距離をもとに衝突判定を行う
         //-- キャラクターショットの衝突判定 ----------------------------------------------------------------------------
         //存在する全てのキャラクターショット1つひとつに対して、生存している全ての敵との距離を計算し衝突判定を行っている→計算量O(n^2)
         for(i = 0; i<CHARA_SHOT_MAX_COUNT; i++){
             if(charaShot[i].alive){
                 //-- エネミーとの衝突判定 ------------------------------------
-                for(j = 0; j<ENEMY_MAX_COUNT; j++){
-                    if(enemy[i].alive){
-                        p = enemy[j].position.distance(charaShot[i].position);
-                        if(p.length() <= enemy[j].size){
-                            enemy[j].alive = false;
-                            charaShot[i].alive = false;
+                // for(j = 0; j<ENEMY_MAX_COUNT; j++){
+                //     if(enemy[i].alive){
+                //         p = enemy[j].position.distance(charaShot[i].position);
+                //         if(p.length() <= enemy[j].size){
+                //             enemy[j].alive = false;
+                //             charaShot[i].alive = false;
 
-                            score++;
+                //             score++;
                             
-                            break;
-                        }
-                    }
-                }
+                //             break;
+                //         }
+                //     }
+                // }
 
                 //-- 小ボスとの衝突判定 ------------------------------------
                 for(j = 0; j<BOSS_BIT_COUNT; j++){
