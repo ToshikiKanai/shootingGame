@@ -12,7 +12,7 @@ var score = 0;
 // - const ------------------------------------------------------------------------
 var CHARA_COLOR = "rgba(0, 0, 255, 0.75)";
 var CHARA_SHOT_COLOR = "rgba(0, 255, 0 ,0.75)";
-var CHARA_SHOT_MAX_COUNT = 10;
+var CHARA_SHOT_MAX_COUNT = 100;
 var ENEMY_COLOR = "rgba(255, 0, 0, 0.75)";
 var ENEMY_MAX_COUNT = 10;
 var ENEMY_SHOT_COLOR = "rgba(255, 0, 255, 0.75)"
@@ -20,7 +20,7 @@ var ENEMY_SHOT_MAX_COUNT = 100;
 var BOSS_COLOR = "rgba(128, 128, 128, 0.75)";
 var BOSS_BIT_COLOR = "rgba(64, 64, 64, 0.75)";
 var BOSS_BIT_COUNT = 5;
-var BOSS_TIME = 500;
+var BOSS_TIME = 1500;
 
 // - main ------------------------------------------------------------------------
 //window.onload()メソッドは、DOMツリー構造および関連リソースが読み込まれたタイミングで実行される
@@ -49,7 +49,7 @@ window.onload = function(){
         const currentCharaCell = qTree.objectData[n1][currentCharaIndex];
         const currentEnemyCell = qTree.objectData[n2][currentEnemyIndex];
         // 現在のセルの中と、衝突オブジェクトリストとで当たり判定を取る。
-        hitTestInCell(currentCharaCell, currentEnemyCell, charaObjList, enemyObjList);
+        hitTestInCell(n1,currentCharaCell, currentEnemyCell, charaObjList, enemyObjList);
 
         //下位セルをもつか調べる
         let hasChildren = false;
@@ -96,29 +96,50 @@ window.onload = function(){
 
     //セル中&衝突オブジェクトリストとの当たり判定をとる
     //引数cellはセル内にあるオブジェクトの配列、引数objListは衝突オブジェクトリスト
-    function hitTestInCell(charaCell = [], enemyCell = [], charaObjList = [], enemyObjList = []){
+    function hitTestInCell(n1, charaCell = [], enemyCell = [], charaObjList = [], enemyObjList = []){
         //-- セルの中で総当たり -----------
         // if(charaCell == null){charaCell = ["a","b"];}
         // if(enemyCell == null){enemyCell = ["a","b"];}
         const charaLength = charaCell.length;
         const enemyLength = enemyCell.length;
-        for(let i = 0; i < charaLength; i++){
-            const obj1 = charaCell[i];
-            for(let j = 0; j < enemyLength; j++){
-                const obj2 = enemyCell[j];
-                // if(obj1.alive && obj2.alive){
-                    const p = obj2.position.distance(obj1.position)
-                    if(p.length() <= obj1.size){
-                        obj1.alive = false;
-                        obj2.alive = false;
-                        console.log("false");
-                        // obj1.life--;
-                        // if(obj1.life == 0){
-                        //     obj1.alive = false;
-                        // }
+        if(n1 == 1){
+            for(let i = 0; i < charaLength; i++){
+                const obj1 = charaCell[i];
+                for(let j = 0; j < enemyLength; j++){
+                    const obj2 = enemyCell[j];
+                    if(obj1.alive && obj2.alive){
+                        const p = obj2.position.distance(obj1.position)
+                        if(p.length() <= obj2.size){
+                            obj1.alive = false;
+                            obj2.alive = false;
+                            console.log("false");
+                            // obj1.life--;
+                            // if(obj1.life == 0){
+                            //     obj1.alive = false;
+                            // }
+                        }
                     }
-                // }
-                
+                    
+                }
+            }
+        }else if(n1 == 0){
+            for(let i = 0; i < charaLength; i++){
+                const obj1 = charaCell[i];
+                // const obj1 = charaCell[0];
+                for(let j = 0; j < enemyLength; j++){
+                    const obj2 = enemyCell[j];
+                    // if(obj1.alive && obj2.alive){
+                        const p = obj2.position.distance(obj1.position);
+                        if(p.length() <= obj1.size){
+                            obj1.alive = false;
+                            obj2.alive = false;
+                            run = false;
+                            info.style.color = "#ff0000";
+                            message = "GAME OVER !!";
+
+                        }
+                    // }
+                }
             }
         }
         //-- セルの中で総当たりは以上 -----------
@@ -293,7 +314,7 @@ window.onload = function(){
                 message = "";
 
                 //-- エネミーの位置などの設定 ------------------------------------------
-                if(counter % 100 === 0 && counter < BOSS_TIME){
+                if(counter % 10 === 0 && counter < BOSS_TIME){
                     if(counter % 100 === 0){
                     for(i = 0; i<ENEMY_MAX_COUNT; i++){
                         if(!enemy[i].alive){
@@ -516,25 +537,33 @@ window.onload = function(){
         //-- キャラクターショットの衝突判定は以上 --------------------------------------------------------------------
 
         //-- エネミーショットの衝突判定 ----------------------------------------------------------------------------
-        //エネミーと小ボスともにショットオブジェクトは共通(enemyShot[i])なので、enemyShot[i]とキャラクターオブジェクトとの衝突判定のみ行えばOK
-        for(i = 0; i<ENEMY_SHOT_MAX_COUNT; i++){
-            if(enemyShot[i].alive){
-               p = chara.position.distance(enemyShot[i].position);
-               if(p.length() < chara.size){
-                   charaShot.alive = false;
 
-                   run = false;
-                   info.style.color = "#ff0000";
-                   message = "GAME OVER !!";
-                   break;
-               }
-            }
+        //四分木を使った衝突判定
+        qTree._addObj(0,chara);
+        for(i = 0; i < ENEMY_SHOT_MAX_COUNT; i++){
+            qTree._addObj(3,enemyShot[i]);
         }
+        hitTest(0,3);
+
+        //エネミーと小ボスともにショットオブジェクトは共通(enemyShot[i])なので、enemyShot[i]とキャラクターオブジェクトとの衝突判定のみ行えばOK
+        // for(i = 0; i<ENEMY_SHOT_MAX_COUNT; i++){
+        //     if(enemyShot[i].alive){
+        //        p = chara.position.distance(enemyShot[i].position);
+        //        if(p.length() < chara.size){
+        //            charaShot.alive = false;
+
+        //            run = false;
+        //            info.style.color = "#ff0000";
+        //            message = "GAME OVER !!";
+        //            break;
+        //        }
+        //     }
+        // }
         //-- エネミーショットの衝突判定は以上 ----------------------------------------------------------------------------
 
        
 
-        info.innerHTML = "SCORE: " + (score * 100) + " " + message + "" + counter;
+        info.innerHTML = "SCORE: " + (score * 100) + " " + message;
         //update HTML 
         //info.innerHTML = mouse.x + ":" + mouse.y;
 
@@ -564,7 +593,10 @@ function keyDown(event){
         run = false;
     }
     //スペースキーが押された場合
-    if(ck === 32 && counter % 2 == 0){
+    // if(ck === 32 && counter % 2 == 0){
+    //     fire = true;
+    // }
+    if(ck === 32){
         fire = true;
     }
 }
