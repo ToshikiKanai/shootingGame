@@ -46,7 +46,7 @@ window.onload = function(){
 
     //セル中&衝突オブジェクトリストとの当たり判定をとる
     //引数cellはセル内にあるオブジェクトの配列、引数objListは衝突オブジェクトリスト
-    function hitTestInCell(charaCell, enemyCell, charaObjList, enemyObjList){
+    function hitTestInCell(charaCell = [], enemyCell = [], charaObjList = [], enemyObjList = []){
         //-- セルの中で総当たり -----------
         const charaLength = charaCell.length;
         const enemyLength = enemyCell.length;
