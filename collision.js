@@ -17,7 +17,7 @@ class QuadTree{
         this.data = [null];
         this.currentLevel = 0;
 
-        while(this.currentlevel < layer){
+        while(this.currentlevel < level){
             this.expand();
         }
         
