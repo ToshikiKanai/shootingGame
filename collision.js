@@ -16,12 +16,12 @@ class QuadTree{
         this.level = level;
         this.data = [null];
         this.currentLevel = 0;
+        this.objectData = [[null],[null],[null],[null]];
 
-        while(this.currentlevel < level){
+        while(this.currentLevel < level){
             this.expand();
         }
-        
-        this.objectData = [this.data,this.data,this.data,this.data];
+        // this.objectData = [this.data,this.data,this.data,this.data];
     }
 
     clear(){
@@ -40,28 +40,35 @@ class QuadTree{
             エネミーショット : 3
     */
    //addNode()はaddObjで呼び出される
-    addNode(n, node, level, index){
+    _addNode(n, node, level, index){
         //indexはその階層(level)の中での番号
         const offset = ((4 ** level) -1) / 3;
         const linearIndex = offset + index; 
 
-        if(level > this.level){
-            level = this.level
-        }
+        // for(let i = 0; i < 4; i++){
+        //     // もしdataの長さが足りないなら拡張する。
+        //     console.log(this.objectData[i].length);
+        //     while(this.objectData[i].length <= linearIndex){
+        //         this.objectData[i].push();
+        //     }
+        // }
 
         //セルの初期値はnullであるため、nodeを挿入するセルの上の階層を空配列で初期化する(nullのままにしない)。
         //空配列で初期化することにより、かくセルに複数のオブジェクトを挿入可能となる
         //全てのnに対して初期化が必要
-        let parentCellIndex = linearIndex;
-        for(var i = 0; i < 4; i++){
-            while(this.data[i][parentCellIndex] === null){
-                this.data[i][parentCellIndex] = [];
-
+        // let parentCellIndex = linearIndex;
+        for(let i = 0; i < 4; i++){
+            var parentCellIndex = linearIndex;
+            while(this.objectData[i][parentCellIndex] === null){
+                this.objectData[i][parentCellIndex] = [];
                 parentCellIndex = Math.floor((parentCellIndex - 1) / 4);
+                if(parentCellIndex >= this.objectData[i].length){
+                    break;
+                }
             }
         }
 
-        const cell = this.data[n][linearIndex];
+        const cell = this.objectData[n][linearIndex];
         cell.push(node);
     }
 
@@ -73,18 +80,19 @@ class QuadTree{
             エネミー : 2
             エネミーショット : 3
     */
-    addObj(n, obj){
+    _addObj(n, obj){
         const objId = n;
         const collider = obj;
         const size = collider.size;
-        const left = collider.x - size
-        const right = collider.x + size
-        const top = collider.y - size
-        const bottom = collider.y + size
+        const left = collider.x - size;
+        const right = collider.x + size;
+        const top = collider.y - size;
+        const bottom = collider.y + size;
 
         // モートン番号の計算。
         const leftTopMorton = this.calc2DMortonNumber(left, top);
-        const rightBottomMorton = this.calc2DMortonNumber(right,bottom);
+        const rightBottomMorton = this.calc2DMortonNumber(right, bottom);
+
 
         // 左上も右下も-1（画面外）であるならば、
         // レベル0として扱う。
@@ -93,26 +101,29 @@ class QuadTree{
         // オブジェクトが大量配置され、当たり判定に大幅な処理時間がかかる。
         // 実用の際にはここをうまく書き換えて、あまり負担のかからない処理に置き換えるといい。
         if(leftTopMorton === -1 && rightBottomMorton === -1){
-            this.addNode(obj, 0, 0);
+            this._addNode(n ,obj, 0, 0);
             return;
         }
+        // if(obj.alive){
+        //     // console(obj.alive);
+        // }
 
         // 左上と右下が同じ番号に所属していたら、それはひとつのセルに収まっているということなので、 
         // 特に計算もせずそのまま現在のレベルのセルに入れる。
         if(leftTopMorton === rightBottomMorton){
-            this.addNode(obj, this.currentLevel, leftTopMorton);
+            this._addNode(n, obj, this.currentLevel, leftTopMorton);
             return;
         }
 
         // 左上と右下が異なる番号（＝境界をまたいでいる）の場合、所属するレベルを計算する。
-        const level = this.calcLevel(leftTopMorton, rightBottomMorton)
+        const level = this.calcLevel(leftTopMorton, rightBottomMorton);
         // そのレベルでの所属する番号を計算する。
         // モートン番号の代表値として大きい方を採用する。これは片方が-1の場合、-1でない方を採用したいため。
         const larger = Math.max(leftTopMorton, rightBottomMorton);
         const cellNumber = this.calcCell(larger, level);
 
         //線形四分木に追加する
-        this.addNode(objId, obj, level, cellNumber);
+        this._addNode(objId, obj, level, cellNumber);
     }
 
     //-- 以下関数定義 --------------------------------------------------------------------------------------
@@ -120,18 +131,21 @@ class QuadTree{
     // 線形四分木の長さを伸ばす。
     expand(){
         const nextLevel = this.currentLevel + 1;
-        const length = (4  ** (nextLevel + 1)) / 3;
-
-        while(this.data.length < length){
-            this.data.push(null);
+        const length = ((4  ** (nextLevel + 1)) - 1) / 3;
+        for(let i = 0; i < 4; i++){
+            while(this.objectData[i].length < length){
+               this.objectData[i].push(null);
+            }
         }
-
+        // while(this.data.length < length){
+        //     this.data.push(null);
+        //  }
         this.currentLevel++;
     }
 
     // 16bitの数値を1bit飛ばしの32bitにする。
     // "|"はビットの論理和を求める演算子c
-    separateBit32(){
+    separateBit32(n){
         n = (n|(n<<8))& 0x00ff00ff;
         n = (n|(n<<4))& 0x0f0f0f0f;
         n = (n|(n<<2))& 0x33333333;
@@ -142,7 +156,7 @@ class QuadTree{
         if(x < 0|| y < 0){
             return -1;
         }else if(x > this.width || y > this.height){
-            return -1
+            return -1;
         }
         //空間の中の位置を求める
         const xCell = Math.floor(x / (this.width / (2 ** this.currentLevel)));

@@ -30,7 +30,6 @@ window.onload = function(){
     //gloval valiable
     var i, j;
     var p = new Point(); //Point()は座標を表すオブジェクト
-    var qTree;
 
     //index.htmlの"screem"idをもつcanvas要素への参照を取得
     screenCanvas = document.getElementById("screen"); 
@@ -42,26 +41,84 @@ window.onload = function(){
 
     //-- 四分木分割関連の処理 ----------------------------------------------------------------------------------------------------
     //線形四分木空間の用意
-    qTree = new QuadTree(screenCanvas.width, screenCanvas.height, 3);
+    let qTree = new QuadTree(screenCanvas.width, screenCanvas.height, 3);
+
+    //-- 衝突判定 ------------------------------------
+    //hitTest(n1,n2)を使用する際には引数のn1、n2のみ指定すればよい
+    function hitTest(n1,n2,currentCharaIndex = 0, currentEnemyIndex = 0, charaObjList = [], enemyObjList =[]){
+        const currentCharaCell = qTree.objectData[n1][currentCharaIndex];
+        const currentEnemyCell = qTree.objectData[n2][currentEnemyIndex];
+        // 現在のセルの中と、衝突オブジェクトリストとで当たり判定を取る。
+        hitTestInCell(currentCharaCell, currentEnemyCell, charaObjList, enemyObjList);
+
+        //下位セルをもつか調べる
+        let hasChildren = false;
+        for(let i = 0; i < 4; i++){
+            const nextIndex = currentCharaIndex * 4 + 1 + i;
+            //下位セルがあった場合
+            let hasChildCell = (nextIndex < qTree.objectData[n1].length) && (qTree.objectData[n1][nextIndex] !== null);
+            hasChildren = hasChildren || hasChildCell;
+            if(hasChildCell){
+                //衝突オブジェクトリストにpush
+                charaObjList.push(...currentCharaCell);
+                hitTest(n1, n2, nextIndex, currentEnemyIndex, charaObjList, enemyObjList);
+            }
+        }
+        //追加したオブジェクトをpop
+        if(hasChildren){
+            const popNum = currentCharaCell.length;
+            for(let i = 0; i < popNum; i++){
+                charaObjList.pop();
+            }
+        }
+
+        hasChildren = false;
+        for(let i = 0; i < 4; i++){
+            const nextIndex = currentEnemyIndex * 4 + 1 + i;
+            //下位セルがあった場合
+            let hasChildCell = (nextIndex < qTree.objectData[n2].length) && (qTree.objectData[n2][nextIndex] !== null);
+            hasChildren = hasChildren || hasChildCell;
+            if(hasChildCell){
+                //衝突オブジェクトリストにpush
+                enemyObjList.push(...currentEnemyCell);
+                hitTest(n1, n2, currentCharaIndex, nextIndex, charaObjList, enemyObjList);
+            }
+        }
+        //追加したオブジェクトをpop
+        if(hasChildren){
+            const popNum = currentEnemyCell.length;
+            for(let i = 0; i < popNum; i++){
+                enemyObjList.pop();
+            }
+        }
+        
+    }
 
     //セル中&衝突オブジェクトリストとの当たり判定をとる
     //引数cellはセル内にあるオブジェクトの配列、引数objListは衝突オブジェクトリスト
     function hitTestInCell(charaCell = [], enemyCell = [], charaObjList = [], enemyObjList = []){
         //-- セルの中で総当たり -----------
+        // if(charaCell == null){charaCell = ["a","b"];}
+        // if(enemyCell == null){enemyCell = ["a","b"];}
         const charaLength = charaCell.length;
         const enemyLength = enemyCell.length;
         for(let i = 0; i < charaLength; i++){
             const obj1 = charaCell[i];
-            for(let j = 0; j < enemyCell; j++){
+            for(let j = 0; j < enemyLength; j++){
                 const obj2 = enemyCell[j];
-
-                const p = obj2.position.distance(obj1.position)
-                if(p.length() <= obj1.size){
-                    obj1.life--;
-                    if(obj1.life == 0){
+                // if(obj1.alive && obj2.alive){
+                    const p = obj2.position.distance(obj1.position)
+                    if(p.length() <= obj1.size){
                         obj1.alive = false;
+                        obj2.alive = false;
+                        console.log("false");
+                        // obj1.life--;
+                        // if(obj1.life == 0){
+                        //     obj1.alive = false;
+                        // }
                     }
-                }
+                // }
+                
             }
         }
         //-- セルの中で総当たりは以上 -----------
@@ -99,56 +156,7 @@ window.onload = function(){
         //-- 衝突オブジェクトリストと総当たりは以上 -----
     }
 
-    //-- 衝突判定 ------------------------------------
-    //hitTest(n1,n2)を使用する際には引数のn1、n2のみ指定すればよい
-    function hitTest(n1,n2,currentCharaIndex = 0, currentEnemyIndex = 0, charaObjList = [], enemyObjList =[]){
-        const currentCharaCell = qTree.objectData[n1][currentCharaIndex];
-        const currentEnemyCell = qTree.objectData[n2][currentEnemyIndex];
-        // 現在のセルの中と、衝突オブジェクトリストとで当たり判定を取る。
-        hitTestInCell(currentCharaCell, currentEnemyCell, charaObjList, enemyObjList);
-
-        //下位セルをもつか調べる
-        var hasChildren = false;
-        for(let i = 0; i < 4; i++){
-            const nextIndex = currentCharaIndex * 4 + 1 + i;
-            //下位セルがあった場合
-            let hasChildCell = (nextIndex < qTree.objectData[n1].length) && (qTree.objectData[n1][nextIndex] !== null);
-            hasChildren = hasChildren || hasChildCell;
-            if(hasChildCell){
-                //衝突オブジェクトリストにpush
-                charaObjList.push(...currentCharaCell);
-                hitTest(n1, n2, nextIndex, currentEnemyIndex, charaObjList, enemyObjList);
-            }
-        }
-        //追加したオブジェクトをpop
-        if(hasChildren){
-            const popNum = currentCharaCell.length;
-            for(let i = 0; i < popNum; i++){
-                charaObjList.pop();
-            }
-        }
-
-        hasChildren = false;
-        for(let i = 0; i < 4; i++){
-            const nextIndex = currentEnemyIndex * 4 + 1 + i;
-            //下位セルがあった場合
-            let hasChildCell = (nextIndex < qTree.objectData[n2].length) && (qTree.objectData[n2][nextIndex] !== null);
-            hasChildren = hasChildren || hasChildCell;
-            if(hasChildCell){
-                //衝突オブジェクトリストにpush
-                charaObjList.push(...currentEnemyCell);
-                hitTest(n1, n2, nextIndex, currentEnemyIndex, charaObjList, enemyObjList);
-            }
-        }
-        //追加したオブジェクトをpop
-        if(hasChildren){
-            const popNum = currentEnemyCell.length;
-            for(let i = 0; i < popNum; i++){
-                charaObjList.pop();
-            }
-        }
-        
-    }
+    
     //-- 四分木分割関連の処理は以上 -------------------------------------------------------------------------------------------------
 
     //target.addEventListener()で(マウスの位置の検出などの)イベントを登録することができる
@@ -417,13 +425,12 @@ window.onload = function(){
         ctx.fill();
             //-- 小ボスの描画処理は以上 ----------------------------------------------------------
         //-- ボスの描画処理は以上 ------------------------------------------------------------------------------------
-
-
+        
         //-- 衝突判定 ----------------------------------------------------------------------------------------------
         //四分木を使った衝突判定
 
         //四分木をクリア
-        qTree.clear();    
+        qTree.clear();
         //qTree.addObj(n, obj)で各オブジェクトを四分木に登録
         /*　引数nは、追加するオブジェクトをあらわす。
             キャラクター : 0
@@ -432,19 +439,21 @@ window.onload = function(){
             エネミーショット : 3
         */
         //キャラクターショットを登録
-        for(i = 0; i<CHARA_SHOT_MAX_COUNT; i++){
-            if(charaShot[i].alive){
-                qTree.addObj(1, charaShot[i])
-            }
+        for(i = 0; i < CHARA_SHOT_MAX_COUNT; i++){
+            // if(charaShot[i].alive){
+            //     qTree._addObj(1, charaShot[i]);
+            // }
+            qTree._addObj(1, charaShot[i]);
         }
         //エネミーを登録
         for(i = 0; i<ENEMY_MAX_COUNT; i++){
-            if(enemy[i].alive){
-                qTree.addObj(2, enemy[i])
-            }
+            // if(enemy[i].alive){
+            //     qTree._addObj(2, enemy[i]);
+            // }
+            qTree._addObj(2, enemy[i]);
         }
         //hitTest(n1,n2)のn1はキャラクター(ショット)、n2はエネミー(ショット)
-        hitTest(1,2)
+        hitTest(1,2);
 
 
 
@@ -525,7 +534,7 @@ window.onload = function(){
 
        
 
-        info.innerHTML = "SCORE: " + (score * 100) + " " + message;
+        info.innerHTML = "SCORE: " + (score * 100) + " " + message + "" + counter;
         //update HTML 
         //info.innerHTML = mouse.x + ":" + mouse.y;
 
